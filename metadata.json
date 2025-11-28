@@ -1,0 +1,5 @@
+{
+  "name": "Binance Interval Analyzer",
+  "description": "Analyzes the correlation between 14m30s price movements and full 15m candle closures for BTC and ETH.",
+  "requestFramePermissions": []
+}
