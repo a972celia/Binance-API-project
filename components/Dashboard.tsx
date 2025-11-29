@@ -9,40 +9,58 @@ interface DashboardProps {
   loading: boolean;
 }
 
-const formatTime = (ts: number) => {
+const formatTime = (ts: number, short = false) => {
   const date = new Date(ts);
   // Format as DD HH:mm (UTC)
   const d = date.getUTCDate().toString().padStart(2, '0');
+  const m = (date.getUTCMonth() + 1).toString().padStart(2, '0');
   const h = date.getUTCHours().toString().padStart(2, '0');
-  const m = date.getUTCMinutes().toString().padStart(2, '0');
-  return `${d}d ${h}:${m}`;
+  const min = date.getUTCMinutes().toString().padStart(2, '0');
+  
+  if (short) return `${m}/${d}`;
+  return `${m}/${d} ${h}:${min}`;
 };
 
 const Dashboard: React.FC<DashboardProps> = ({ stats, loading }) => {
-  // 1. Hook: Calculate hourlyData (Always call hooks at top level)
-  const hourlyData = useMemo(() => {
-    if (!stats || stats.dataPoints.length === 0) return [];
+  // 1. Hook: Calculate Chart Data
+  const chartData = useMemo(() => {
+    if (!stats || stats.dataPoints.length === 0) return { data: [], isLongRange: false };
 
+    // If data covers more than 31 days, aggregate by DAY instead of HOUR to prevent chart overload
+    // 30 days * 24 * 4 (15m intervals) = 2880 intervals roughly.
+    const isLongRange = stats.totalIntervals > 3500;
+    
     const map = new Map<string, { time: number, total: number, matches: number }>();
     
     // Use original order (oldest first) for chart
     const reversedPoints = [...stats.dataPoints].reverse();
 
     reversedPoints.forEach(p => {
-      const hourKey = Math.floor(p.startTime / (60 * 60 * 1000)) * (60 * 60 * 1000);
-      if (!map.has(hourKey.toString())) {
-        map.set(hourKey.toString(), { time: hourKey, total: 0, matches: 0 });
+      let timeKey: number;
+      
+      if (isLongRange) {
+        // Daily binning
+        timeKey = Math.floor(p.startTime / (24 * 60 * 60 * 1000)) * (24 * 60 * 60 * 1000);
+      } else {
+        // Hourly binning
+        timeKey = Math.floor(p.startTime / (60 * 60 * 1000)) * (60 * 60 * 1000);
       }
-      const entry = map.get(hourKey.toString())!;
+      
+      if (!map.has(timeKey.toString())) {
+        map.set(timeKey.toString(), { time: timeKey, total: 0, matches: 0 });
+      }
+      const entry = map.get(timeKey.toString())!;
       entry.total += 1;
       if (p.isMatch) entry.matches += 1;
     });
 
-    return Array.from(map.values()).map(item => ({
-      timeStr: formatTime(item.time),
+    const data = Array.from(map.values()).map(item => ({
+      timeStr: formatTime(item.time, isLongRange),
       matchRate: (item.matches / item.total) * 100,
       total: item.total
     }));
+    
+    return { data, isLongRange };
   }, [stats]);
 
   // 2. Hook: Pie Data
@@ -54,11 +72,19 @@ const Dashboard: React.FC<DashboardProps> = ({ stats, loading }) => {
     ];
   }, [stats]);
 
-  // 3. Conditional Rendering (After hooks)
+  // 3. Hook: Limited Table Data (prevent DOM explosion)
+  const tableData = useMemo(() => {
+    if (!stats) return [];
+    // Show only the last 500 records to keep the DOM light
+    return stats.dataPoints.slice(0, 500);
+  }, [stats]);
+
+  // 4. Conditional Rendering (After hooks)
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-96">
+      <div className="flex flex-col items-center justify-center h-96 gap-4">
         <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-emerald-500"></div>
+        <p className="text-slate-400 animate-pulse">Fetching & Analyzing Data...</p>
       </div>
     );
   }
@@ -77,7 +103,7 @@ const Dashboard: React.FC<DashboardProps> = ({ stats, loading }) => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg">
           <h3 className="text-slate-400 text-sm uppercase font-bold tracking-wider">Analysis Range</h3>
-          <p className="text-2xl font-bold text-white mt-2">{stats.dataPoints.length} Intervals</p>
+          <p className="text-2xl font-bold text-white mt-2">{stats.totalIntervals.toLocaleString()} Intervals</p>
           <p className="text-slate-500 text-sm mt-1">15-min blocks analyzed</p>
         </div>
         
@@ -120,30 +146,37 @@ const Dashboard: React.FC<DashboardProps> = ({ stats, loading }) => {
         </div>
       </div>
 
-      {/* Hourly Trend Chart */}
+      {/* Hourly/Daily Trend Chart */}
       <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg">
-        <h3 className="text-slate-200 font-bold mb-4">Consistency Rate Over Time (Hourly Avg)</h3>
+        <h3 className="text-slate-200 font-bold mb-4">
+            Consistency Rate Over Time 
+            <span className="ml-2 text-xs font-normal text-slate-400 bg-slate-700 px-2 py-1 rounded">
+                {chartData.isLongRange ? 'Daily Avg' : 'Hourly Avg'}
+            </span>
+        </h3>
         <div className="h-64 w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={hourlyData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+            <BarChart data={chartData.data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
               <XAxis 
                 dataKey="timeStr" 
                 tick={{ fill: '#94a3b8', fontSize: 12 }} 
                 tickLine={false}
                 axisLine={{ stroke: '#475569' }}
+                minTickGap={30}
               />
               <YAxis 
                 tick={{ fill: '#94a3b8', fontSize: 12 }} 
                 tickLine={false}
                 axisLine={{ stroke: '#475569' }}
                 unit="%"
+                domain={[0, 100]}
               />
               <Tooltip 
                  contentStyle={{ backgroundColor: '#1e293b', borderColor: '#334155', color: '#fff' }}
                  cursor={{ fill: '#334155', opacity: 0.4 }}
               />
               <Bar dataKey="matchRate" radius={[4, 4, 0, 0]}>
-                {hourlyData.map((entry, index) => (
+                {chartData.data.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={entry.matchRate > 80 ? '#10b981' : entry.matchRate > 50 ? '#f59e0b' : '#f43f5e'} />
                 ))}
               </Bar>
@@ -154,9 +187,12 @@ const Dashboard: React.FC<DashboardProps> = ({ stats, loading }) => {
 
       {/* Detailed Table */}
       <div className="bg-slate-800 rounded-xl border border-slate-700 shadow-lg overflow-hidden">
-        <div className="p-4 border-b border-slate-700 bg-slate-800/50 flex justify-between items-center">
+        <div className="p-4 border-b border-slate-700 bg-slate-800/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
           <h3 className="font-bold text-slate-200">Detailed Interval Log</h3>
-          <span className="text-xs text-slate-500">*14m30s price approximated using Minute 14 OHLC avg</span>
+          <div className="text-xs text-slate-500 flex flex-col items-end">
+            <span>*Showing last {tableData.length} of {stats.totalIntervals.toLocaleString()} intervals</span>
+            <span>*14m30s price approximated using Minute 14 OHLC avg</span>
+          </div>
         </div>
         <div className="overflow-x-auto max-h-[500px]">
           <table className="w-full text-left text-sm text-slate-400">
@@ -180,7 +216,7 @@ const Dashboard: React.FC<DashboardProps> = ({ stats, loading }) => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-700">
-              {stats.dataPoints.map((row, idx) => {
+              {tableData.map((row, idx) => {
                 const diff14 = ((row.priceAt14m30s - row.startPrice) / row.startPrice) * 100;
                 const diff15 = ((row.priceAt15m - row.startPrice) / row.startPrice) * 100;
                 

@@ -39,7 +39,7 @@ export interface AnalysisStats {
   dataPoints: IntervalAnalysis[];
 }
 
-export type TimeRange = '24h' | '3d' | '7d';
+export type TimeRange = '24h' | '3d' | '7d' | '14d' | '30d' | '1y';
 
 export const PAIRS = [
   { value: 'BTCUSDT', label: 'Bitcoin (BTC)' },

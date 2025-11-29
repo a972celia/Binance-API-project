@@ -9,10 +9,12 @@ function App() {
   const [timeRange, setTimeRange] = useState<TimeRange>('24h');
   const [stats, setStats] = useState<AnalysisStats | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
+  const [progress, setProgress] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
 
   const handleFetch = async () => {
     setLoading(true);
+    setProgress(0);
     setError(null);
     setStats(null);
 
@@ -21,8 +23,15 @@ function App() {
       let hours = 24;
       if (timeRange === '3d') hours = 72;
       if (timeRange === '7d') hours = 168;
+      if (timeRange === '14d') hours = 336;
+      if (timeRange === '30d') hours = 720;
+      if (timeRange === '1y') hours = 8760; // 365 * 24
 
-      const klines = await fetchHistoricalData(selectedPair, hours);
+      const klines = await fetchHistoricalData(selectedPair, hours, (p) => setProgress(p));
+      
+      // Small delay to allow UI to render 100% before crunching numbers
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       const results = analyzeData(klines, selectedPair);
       setStats(results);
     } catch (err: any) {
@@ -84,12 +93,12 @@ function App() {
             {/* Time Range */}
             <div className="flex flex-col">
                <label className="block text-xs font-medium text-slate-400 mb-1 ml-1">History Range</label>
-               <div className="flex bg-slate-900 rounded-lg p-1 border border-slate-700">
-                  {(['24h', '3d', '7d'] as TimeRange[]).map((r) => (
+               <div className="flex bg-slate-900 rounded-lg p-1 border border-slate-700 overflow-x-auto max-w-[90vw] sm:max-w-none no-scrollbar">
+                  {(['24h', '3d', '7d', '14d', '30d', '1y'] as TimeRange[]).map((r) => (
                     <button
                       key={r}
                       onClick={() => setTimeRange(r)}
-                      className={`px-4 py-1.5 text-sm rounded-md transition-all ${
+                      className={`px-3 sm:px-4 py-1.5 text-sm rounded-md transition-all whitespace-nowrap ${
                         timeRange === r 
                         ? 'bg-emerald-600 text-white shadow-lg' 
                         : 'text-slate-400 hover:text-white hover:bg-slate-800'
@@ -109,13 +118,15 @@ function App() {
             className="w-full sm:w-auto mt-4 sm:mt-0 flex items-center justify-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-medium rounded-lg transition-colors shadow-lg shadow-emerald-900/20 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? (
-              <>
-                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Processing...
-              </>
+              <div className="flex items-center">
+                 <div className="w-24 h-2 bg-slate-700 rounded-full overflow-hidden mr-2">
+                    <div 
+                      className="h-full bg-white transition-all duration-300 ease-out"
+                      style={{ width: `${progress}%` }}
+                    />
+                 </div>
+                 <span className="text-xs">{progress}%</span>
+              </div>
             ) : (
               <>
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
