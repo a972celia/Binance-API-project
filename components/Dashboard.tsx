@@ -114,7 +114,7 @@ const Dashboard: React.FC<DashboardProps> = ({ stats, loading }) => {
               {stats.matchRate.toFixed(2)}%
             </span>
           </div>
-          <p className="text-slate-500 text-sm mt-1">14m30s direction matches 15m end</p>
+          <p className="text-slate-500 text-sm mt-1">14m55s direction matches 15m end</p>
         </div>
 
         <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg flex items-center justify-center relative">
@@ -191,7 +191,7 @@ const Dashboard: React.FC<DashboardProps> = ({ stats, loading }) => {
           <h3 className="font-bold text-slate-200">Detailed Interval Log</h3>
           <div className="text-xs text-slate-500 flex flex-col items-end">
             <span>*Showing last {tableData.length} of {stats.totalIntervals.toLocaleString()} intervals</span>
-            <span>*14m30s price approximated using Minute 14 OHLC avg</span>
+            <span>*14m55s price approx using Minute 14 OHLC interp</span>
           </div>
         </div>
         <div className="overflow-x-auto max-h-[500px]">
@@ -202,7 +202,7 @@ const Dashboard: React.FC<DashboardProps> = ({ stats, loading }) => {
                 <th className="px-6 py-3">Start Price</th>
                 <th className="px-6 py-3">
                     <div className="flex flex-col">
-                        <span>14m 30s</span>
+                        <span>14m 55s</span>
                         <span className="text-[10px] opacity-70">Diff %</span>
                     </div>
                 </th>
@@ -217,7 +217,7 @@ const Dashboard: React.FC<DashboardProps> = ({ stats, loading }) => {
             </thead>
             <tbody className="divide-y divide-slate-700">
               {tableData.map((row, idx) => {
-                const diff14 = ((row.priceAt14m30s - row.startPrice) / row.startPrice) * 100;
+                const diff14 = ((row.priceAt14m55s - row.startPrice) / row.startPrice) * 100;
                 const diff15 = ((row.priceAt15m - row.startPrice) / row.startPrice) * 100;
                 
                 return (
@@ -230,8 +230,8 @@ const Dashboard: React.FC<DashboardProps> = ({ stats, loading }) => {
                     </td>
                     <td className="px-6 py-3">
                       <div className="flex items-center gap-2">
-                        <span className="font-mono">{row.priceAt14m30s.toFixed(2)}</span>
-                        <span className={`text-xs px-1.5 py-0.5 rounded ${row.direction14m30s === Direction.UP ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
+                        <span className="font-mono">{row.priceAt14m55s.toFixed(2)}</span>
+                        <span className={`text-xs px-1.5 py-0.5 rounded ${row.direction14m55s === Direction.UP ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
                           {diff14 > 0 ? '+' : ''}{diff14.toFixed(3)}%
                         </span>
                       </div>

@@ -19,9 +19,9 @@ export interface IntervalAnalysis {
   endTime: number;   // e.g. 10:15
   startPrice: number; // Price at 0m 0s
   
-  // 0m - 14m 30s
-  priceAt14m30s: number; 
-  direction14m30s: Direction;
+  // 0m - 14m 55s
+  priceAt14m55s: number; 
+  direction14m55s: Direction;
   
   // 0m - 15m 0s
   priceAt15m: number;

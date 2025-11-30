@@ -44,14 +44,17 @@ export const analyzeData = (klines: BinanceKline[], symbol: string): AnalysisSta
     // The "end" of the 15m block is the CLOSE of the 14th minute candle.
     const priceAt15m = parseFloat(endCandle.close);
     
-    // --- 14m 30s Calculation ---
+    // --- 14m 55s Calculation ---
     // Limitation: We don't have tick data.
-    // Approximation: The price at 14m 30s is roughly the midpoint of the 14th minute candle.
-    // Or we could use Open of 14th minute (14:00).
-    // Using Average of Open/Close of 14th minute is a balanced approach for "mid-minute".
+    // Calculation: Linear interpolation of the 14th minute candle.
+    // The candle represents 14:00 to 14:59.
+    // We want 14:55, which is 55/60ths through the candle duration.
+    
     const open14 = parseFloat(endCandle.open);
     const close14 = parseFloat(endCandle.close);
-    const priceAt14m30s = (open14 + close14) / 2;
+    
+    // Interpolation formula: Price = Open + (Change * Fraction)
+    const priceAt14m55s = open14 + (close14 - open14) * (55 / 60);
 
     // --- Directions ---
     const getDirection = (start: number, end: number): Direction => {
@@ -61,20 +64,20 @@ export const analyzeData = (klines: BinanceKline[], symbol: string): AnalysisSta
     };
 
     const direction15m = getDirection(startPrice, priceAt15m);
-    const direction14m30s = getDirection(startPrice, priceAt14m30s);
+    const direction14m55s = getDirection(startPrice, priceAt14m55s);
 
     // --- Match Logic ---
     // If one is FLAT and the other is UP/DOWN, is it a match? Usually no.
     // Strict match: UP==UP or DOWN==DOWN.
     // If both are FLAT, it's a match.
-    const isMatch = direction15m === direction14m30s;
+    const isMatch = direction15m === direction14m55s;
 
     results.push({
       startTime,
       endTime: startTime + 15 * 60 * 1000,
       startPrice,
-      priceAt14m30s,
-      direction14m30s,
+      priceAt14m55s,
+      direction14m55s,
       priceAt15m,
       direction15m,
       isMatch
