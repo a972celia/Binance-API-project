@@ -19,6 +19,7 @@ function App() {
   const [ghToken, setGhToken] = useState('');
   const [ghOwner, setGhOwner] = useState('');
   const [ghRepo, setGhRepo] = useState('');
+  const [repoUrl, setRepoUrl] = useState(''); // New state for URL input
   const [autoUpload, setAutoUpload] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [showGhSettings, setShowGhSettings] = useState(false);
@@ -43,6 +44,19 @@ function App() {
     localStorage.setItem('gh_repo', ghRepo);
     localStorage.setItem('gh_auto_upload', String(autoUpload));
   }, [ghToken, ghOwner, ghRepo, autoUpload]);
+
+  const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const url = e.target.value;
+    setRepoUrl(url);
+    
+    // Regex to extract owner and repo from standard GitHub URLs
+    // Supports: https://github.com/owner/repo or github.com/owner/repo
+    const match = url.match(/github\.com\/([^\/]+)\/([^\/]+?)(?:\.git|\/|$)/);
+    if (match) {
+      setGhOwner(match[1]);
+      setGhRepo(match[2]);
+    }
+  };
 
   const generateCSV = (data: AnalysisStats) => {
     const headers = [
@@ -285,40 +299,57 @@ function App() {
             </button>
             
             {showGhSettings && (
-              <div className="mt-3 p-4 bg-slate-900/50 rounded-lg border border-slate-700 grid grid-cols-1 md:grid-cols-2 gap-4 animate-fade-in">
-                 <div>
-                    <label className="block text-xs text-slate-500 mb-1">GitHub Personal Access Token (Repo Scope)</label>
+              <div className="mt-3 p-4 bg-slate-900/50 rounded-lg border border-slate-700 animate-fade-in">
+                 
+                 {/* URL Input */}
+                 <div className="mb-4">
+                    <label className="block text-xs text-slate-500 mb-1">Repository URL (Paste to auto-fill)</label>
                     <input 
-                      type="password" 
-                      value={ghToken}
-                      onChange={(e) => setGhToken(e.target.value)}
-                      placeholder="ghp_xxxxxxxxxxxx"
+                      type="text" 
+                      value={repoUrl}
+                      onChange={handleUrlChange}
+                      placeholder="https://github.com/username/repo-name"
                       className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-sm text-white focus:border-emerald-500 focus:outline-none"
                     />
                  </div>
-                 <div className="grid grid-cols-2 gap-4">
+
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs text-slate-500 mb-1">Repo Owner</label>
-                      <input 
-                        type="text" 
-                        value={ghOwner}
-                        onChange={(e) => setGhOwner(e.target.value)}
-                        placeholder="username"
-                        className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-sm text-white focus:border-emerald-500 focus:outline-none"
-                      />
+                        <label className="block text-xs text-slate-500 mb-1">GitHub Personal Access Token (Repo Scope)</label>
+                        <input 
+                          type="password" 
+                          value={ghToken}
+                          onChange={(e) => setGhToken(e.target.value)}
+                          placeholder="ghp_xxxxxxxxxxxx"
+                          className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-sm text-white focus:border-emerald-500 focus:outline-none"
+                        />
                     </div>
-                    <div>
-                      <label className="block text-xs text-slate-500 mb-1">Repo Name</label>
-                      <input 
-                        type="text" 
-                        value={ghRepo}
-                        onChange={(e) => setGhRepo(e.target.value)}
-                        placeholder="my-repo"
-                        className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-sm text-white focus:border-emerald-500 focus:outline-none"
-                      />
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs text-slate-500 mb-1">Repo Owner</label>
+                          <input 
+                            type="text" 
+                            value={ghOwner}
+                            onChange={(e) => setGhOwner(e.target.value)}
+                            placeholder="username"
+                            className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-sm text-white focus:border-emerald-500 focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-slate-500 mb-1">Repo Name</label>
+                          <input 
+                            type="text" 
+                            value={ghRepo}
+                            onChange={(e) => setGhRepo(e.target.value)}
+                            placeholder="my-repo"
+                            className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-sm text-white focus:border-emerald-500 focus:outline-none"
+                          />
+                        </div>
                     </div>
                  </div>
-                 <div className="md:col-span-2 flex items-center justify-between">
+
+                 <div className="mt-4 md:col-span-2 flex items-center justify-between">
                     <label className="flex items-center gap-2 cursor-pointer">
                        <input 
                          type="checkbox" 
