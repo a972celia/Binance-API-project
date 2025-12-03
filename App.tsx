@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { fetchHistoricalData } from './services/binanceService';
 import { analyzeData } from './utils/analyzer';
+import { uploadFileToGitHub } from './services/githubService';
 import Dashboard from './components/Dashboard';
 import { AnalysisStats, PAIRS, TimeRange } from './types';
 
@@ -13,6 +14,88 @@ function App() {
   const [progress, setProgress] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  
+  // GitHub Settings
+  const [ghToken, setGhToken] = useState('');
+  const [ghOwner, setGhOwner] = useState('');
+  const [ghRepo, setGhRepo] = useState('');
+  const [autoUpload, setAutoUpload] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [showGhSettings, setShowGhSettings] = useState(false);
+
+  // Load settings from local storage on mount
+  useEffect(() => {
+    const savedToken = localStorage.getItem('gh_token');
+    const savedOwner = localStorage.getItem('gh_owner');
+    const savedRepo = localStorage.getItem('gh_repo');
+    const savedAuto = localStorage.getItem('gh_auto_upload');
+    
+    if (savedToken) setGhToken(savedToken);
+    if (savedOwner) setGhOwner(savedOwner);
+    if (savedRepo) setGhRepo(savedRepo);
+    if (savedAuto) setAutoUpload(savedAuto === 'true');
+  }, []);
+
+  // Save settings when changed
+  useEffect(() => {
+    localStorage.setItem('gh_token', ghToken);
+    localStorage.setItem('gh_owner', ghOwner);
+    localStorage.setItem('gh_repo', ghRepo);
+    localStorage.setItem('gh_auto_upload', String(autoUpload));
+  }, [ghToken, ghOwner, ghRepo, autoUpload]);
+
+  const generateCSV = (data: AnalysisStats) => {
+    const headers = [
+      "StartTime_ISO",
+      "EndTime_ISO",
+      "StartPrice",
+      "Price_14m55s",
+      "Direction_14m55s",
+      "Price_15m",
+      "Direction_15m",
+      "IsMatch"
+    ];
+    const rows = data.dataPoints.map(p => [
+      new Date(p.startTime).toISOString(),
+      new Date(p.endTime).toISOString(),
+      p.startPrice,
+      p.priceAt14m55s,
+      p.direction14m55s,
+      p.priceAt15m,
+      p.direction15m,
+      p.isMatch
+    ]);
+    return [headers.join(","), ...rows.map(row => row.join(","))].join("\n");
+  };
+
+  const handleGithubUpload = async (data: AnalysisStats) => {
+    if (!ghToken || !ghOwner || !ghRepo) {
+      setError("Please configure GitHub settings first.");
+      return;
+    }
+
+    setIsUploading(true);
+    setSuccessMsg(null);
+    try {
+      const csvContent = generateCSV(data);
+      // Filename: BNBUSDT_24h_2023-10-27T10-00-00.csv
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const filename = `${selectedPair}_${timeRange}_${timestamp}.csv`;
+      
+      await uploadFileToGitHub(csvContent, filename, {
+        token: ghToken,
+        owner: ghOwner,
+        repo: ghRepo
+      });
+      
+      setSuccessMsg(`Successfully uploaded ${filename} to GitHub!`);
+    } catch (err: any) {
+      console.error(err);
+      setError(`GitHub Upload Failed: ${err.message}`);
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const handleFetch = async () => {
     setLoading(true);
@@ -37,36 +120,18 @@ function App() {
       
       const results = analyzeData(klines, selectedPair);
       setStats(results);
+
+      // Auto Upload Logic
+      if (autoUpload && ghToken && ghOwner && ghRepo) {
+        // Trigger upload without blocking the UI rendering of stats
+        handleGithubUpload(results); 
+      }
+
     } catch (err: any) {
       setError(err.message || 'Failed to fetch data');
     } finally {
       setLoading(false);
     }
-  };
-
-  const generateCSV = () => {
-    if (!stats) return '';
-    const headers = [
-      "StartTime_ISO",
-      "EndTime_ISO",
-      "StartPrice",
-      "Price_14m55s",
-      "Direction_14m55s",
-      "Price_15m",
-      "Direction_15m",
-      "IsMatch"
-    ];
-    const rows = stats.dataPoints.map(p => [
-      new Date(p.startTime).toISOString(),
-      new Date(p.endTime).toISOString(),
-      p.startPrice,
-      p.priceAt14m55s,
-      p.direction14m55s,
-      p.priceAt15m,
-      p.direction15m,
-      p.isMatch
-    ]);
-    return [headers.join(","), ...rows.map(row => row.join(","))].join("\n");
   };
 
   const generateJSON = () => {
@@ -91,7 +156,7 @@ function App() {
 
   const downloadCSV = () => {
     if (!stats) return;
-    const csvContent = generateCSV();
+    const csvContent = generateCSV(stats);
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -207,9 +272,79 @@ function App() {
             </div>
           </div>
 
+          {/* GitHub Integration Toggle */}
+          <div className="mt-4 pt-4 border-t border-slate-700">
+            <button 
+              onClick={() => setShowGhSettings(!showGhSettings)}
+              className="flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors focus:outline-none"
+            >
+              <svg className={`w-4 h-4 transition-transform ${showGhSettings ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+              <span>GitHub Integration Settings</span>
+            </button>
+            
+            {showGhSettings && (
+              <div className="mt-3 p-4 bg-slate-900/50 rounded-lg border border-slate-700 grid grid-cols-1 md:grid-cols-2 gap-4 animate-fade-in">
+                 <div>
+                    <label className="block text-xs text-slate-500 mb-1">GitHub Personal Access Token (Repo Scope)</label>
+                    <input 
+                      type="password" 
+                      value={ghToken}
+                      onChange={(e) => setGhToken(e.target.value)}
+                      placeholder="ghp_xxxxxxxxxxxx"
+                      className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-sm text-white focus:border-emerald-500 focus:outline-none"
+                    />
+                 </div>
+                 <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs text-slate-500 mb-1">Repo Owner</label>
+                      <input 
+                        type="text" 
+                        value={ghOwner}
+                        onChange={(e) => setGhOwner(e.target.value)}
+                        placeholder="username"
+                        className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-sm text-white focus:border-emerald-500 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-slate-500 mb-1">Repo Name</label>
+                      <input 
+                        type="text" 
+                        value={ghRepo}
+                        onChange={(e) => setGhRepo(e.target.value)}
+                        placeholder="my-repo"
+                        className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-sm text-white focus:border-emerald-500 focus:outline-none"
+                      />
+                    </div>
+                 </div>
+                 <div className="md:col-span-2 flex items-center justify-between">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                       <input 
+                         type="checkbox" 
+                         checked={autoUpload}
+                         onChange={(e) => setAutoUpload(e.target.checked)}
+                         className="w-4 h-4 text-emerald-500 rounded border-slate-600 bg-slate-800 focus:ring-emerald-500 focus:ring-offset-slate-900"
+                       />
+                       <span className="text-sm text-slate-300">Auto Upload to GitHub on Refresh</span>
+                    </label>
+                    {stats && !autoUpload && (
+                       <button 
+                         onClick={() => handleGithubUpload(stats)}
+                         disabled={isUploading}
+                         className="text-xs px-3 py-1 bg-slate-700 hover:bg-slate-600 text-white rounded border border-slate-600 transition-colors disabled:opacity-50"
+                       >
+                         {isUploading ? 'Uploading...' : 'Upload Now'}
+                       </button>
+                    )}
+                 </div>
+              </div>
+            )}
+          </div>
+
           {/* Export Section */}
           {stats && (
-            <div className="mt-6 pt-4 border-t border-slate-700">
+            <div className="mt-4 pt-4 border-t border-slate-700">
                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                   <div className="flex items-center gap-2 text-sm text-slate-400">
                     <span className="font-semibold text-slate-300">Export Raw Data:</span>
