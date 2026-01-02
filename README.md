@@ -4,7 +4,8 @@
 
 # Project Title: Binance Volatility & Trend Consistency Analyzer
 
-# Overview: This project focuses on the programmatic retrieval and analysis of high-frequency financial time-series data. Utilizing Python and the Binance API, I engineered a robust script to harvest historical pricing data for major cryptocurrencies (BTC, ETH) with 1-minute granularity.
+# Overview: 
+This project focuses on the programmatic retrieval and analysis of high-frequency financial time-series data. Utilizing Python and the Binance API, I engineered a robust script to harvest historical pricing data for major cryptocurrencies (BTC, ETH) with 1-minute granularity.
 
 # Key Features:
 
