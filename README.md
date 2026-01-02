@@ -2,8 +2,7 @@
 <img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
 </div>
 
-# Project Title: 
-Binance Volatility & Trend Consistency Analyzer
+# Project Title:  Binance Volatility & Trend Consistency Analyzer
 
 # Overview: 
 This project focuses on the programmatic retrieval and analysis of high-frequency financial time-series data. Utilizing Python and the Binance API, I engineered a robust script to harvest historical pricing data for major cryptocurrencies (BTC, ETH) with 1-minute granularity.
